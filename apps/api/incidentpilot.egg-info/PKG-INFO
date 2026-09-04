@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: incidentpilot
+Version: 0.1.0
+Summary: A real-time AI co-commander foundation for technical incidents.
+Requires-Python: <3.14,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: alembic<2,>=1.13
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: psycopg[binary]<4,>=3.2
+Requires-Dist: pydantic-settings<3,>=2.6
+Requires-Dist: PyJWT<3,>=2.9
+Requires-Dist: SQLAlchemy<3,>=2.0
+Requires-Dist: uvicorn<1,>=0.30
+Provides-Extra: dev
+Requires-Dist: httpx<1,>=0.27; extra == "dev"
+Requires-Dist: pytest<9,>=8.0; extra == "dev"
+
+# IncidentPilot — Real-Time AI Co-Commander for Technical Incidents
+
+IncidentPilot is a real-time AI co-commander for high-stakes technical incidents. It augments incident commanders and technical responders by maintaining shared situational awareness through live audio participation, grounded fact extraction, conflict radar, and human-authorized remediation workflows.
+
+> **Foundational Principle**: *"AI recommends. Humans authorize. System enforces."*
+
+---
+
+## Core Capabilities
+
+1. **Agora Live Voice War Room**:
+   - Real-time WebRTC audio participation for Incident Commanders, Responders, and Observers.
+   - Secure server-side binary Agora AccessToken2 generation with role-based publisher permissions.
+   - Live presence tracking and interactive waveform visualizer canvas.
+2. **Incident Intelligence Engine**:
+   - **Grounded Facts**: Evidence-backed observations with direct citations.
+   - **Hypothesis Isolation**: Tracks speculative root-cause theories separately without inventing causes.
+   - **Contradiction Radar**: Automatically detects contradictory claims across telemetry logs and responders.
+   - **Missing-Information Detection**: Surfaces critical open questions regarding deployment timestamps and blast radiuses.
+   - **Action Item Ownership**: Extracts operational tasks preserving named assignees without fabricating owners.
+   - **Spoken AI Debrief**: Synthesizes real-time status updates via speech synthesis.
+3. **Secure Human-in-the-Loop Action Workflow**:
+   - Strictly allowlisted remediation actions (`rollback_deployment`, `restart_service`, `drain_traffic`, `scale_replicas`, `enable_rate_limiting`).
+   - Strong parameter regex validation (zero shell/command injection).
+   - Replay protection & approval expiration TTL.
+   - Restricts authorization to authenticated Incident Commanders.
+4. **Verified-Feedback Learning Layer**:
+   - Stores validated post-incident outcomes (root cause, effective remediations, preventative actions) in an organization-scoped knowledge base.
+   - Zero automated model retraining; historical context is explicitly labeled with non-fact disclaimers.
+5. **External Tool Integrations**:
+   - **Slack**: Incident channel broadcasts and AI debrief updates.
+   - **Jira**: Automated incident ticket and subtask synchronization.
+   - **Monitoring (Datadog/CloudWatch)**: Read-only telemetry health queries and alert ingestion.
+   - **Planned Stubs**: Registered roadmaps for PagerDuty, GitHub, and Opsgenie.
+6. **Enterprise Security & Multitenancy**:
+   - Strict organization boundary isolation on all queries and operations.
+   - Append-only `AuditEvent` log.
+   - Parameterized SQL (SQLAlchemy 2.0 ORM) and security response headers.
+
+---
+
+## Quickstart & Local Development
+
+### 1. Setup Virtual Environment
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -e ".[dev]"
+```
+
+### 2. Configure Environment
+```powershell
+Copy-Item .env.example .env
+```
+
+### 3. Run Database Migrations
+```powershell
+alembic upgrade head
+```
+
+### 4. Start the Application & War Room Dashboard
+```powershell
+uvicorn app.main:app --app-dir apps/api --reload
+```
+Navigate to `http://127.0.0.1:8000/` to explore the interactive glassmorphic Incident War Room.
+
+---
+
+## Production Deployment
+
+### Docker Compose
+```bash
+docker compose up -d --build
+```
+
+### Health & Readiness Probes
+- **Liveness**: `GET /health/live`
+- **Readiness**: `GET /health/ready`
+- **General Health**: `GET /health`
+
+For full production architecture, Kubernetes manifests, and runbooks, see [DEPLOYMENT.md](file:///c:/Users/Bharat%20Thakur/OneDrive/Desktop/AI/IncidentPilot/DEPLOYMENT.md).
+
+---
+
+## Testing
+
+Run the full automated test suite:
+```powershell
+pytest -v
+```
+- **Total Test Count**: 51 tests covering all units, integrations, security invariants, and the complete Payment Outage E2E scenario.

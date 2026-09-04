@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IncidentPilot — Real-Time AI Co-Commander & Live Incident Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <!-- Agora RTC Web SDK -->
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.22.0.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Header -->
+    <header class="app-header" id="app-header">
+      <div class="brand-group">
+        <div class="logo-pulse">
+          <span class="pulse-ring"></span>
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">INCIDENT<span class="accent-text">PILOT</span></h1>
+          <span class="brand-tagline">AI Co-Commander & Live Voice War Room</span>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="incident-badge-group">
+          <label for="incident-select" class="sr-only">Select Incident</label>
+          <select id="incident-select" class="styled-select" aria-label="Active Incident Selector">
+            <option value="">Loading active incidents...</option>
+          </select>
+          <span id="incident-severity-badge" class="severity-pill sev1">SEV1</span>
+          <span id="incident-status-badge" class="status-pill open">OPEN</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-declare-modal" class="btn btn-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Declare Incident
+        </button>
+
+        <div class="principal-switch">
+          <span class="role-icon">👤</span>
+          <select id="principal-role-select" class="role-select" aria-label="Select Persona Role">
+            <option value="incident_commander">Commander (Alice)</option>
+            <option value="responder">Responder (Bob - DB Lead)</option>
+            <option value="observer">Observer (Auditor)</option>
+          </select>
+        </div>
+
+        <div class="system-status-indicator" title="Backend Healthy">
+          <span class="status-dot healthy"></span>
+          <span class="status-text">API Online</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Command Center Grid -->
+    <main class="command-grid" id="main-content">
+      <!-- Left Panel: Agora RTC Live Voice Room & Participant Matrix -->
+      <section class="panel voice-panel" id="voice-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+            </svg>
+            <h2>Agora Live Voice Room</h2>
+          </div>
+          <span id="voice-connection-status" class="connection-tag disconnected">Disconnected</span>
+        </div>
+
+        <!-- Audio Waveform Visualizer -->
+        <div class="visualizer-container" id="visualizer-wrap">
+          <canvas id="audio-canvas" width="360" height="90" class="audio-canvas"></canvas>
+          <div class="visualizer-overlay" id="visualizer-overlay">
+            <span class="channel-label" id="agora-channel-name">Channel: incident-offline</span>
+            <span class="audio-status-label" id="audio-activity-status">Join voice room to transmit</span>
+          </div>
+        </div>
+
+        <!-- Voice Action Buttons -->
+        <div class="voice-controls" id="voice-controls">
+          <button id="btn-join-voice" class="btn btn-primary btn-join">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Join Live Room
+          </button>
+          <button id="btn-toggle-mic" class="btn btn-control" disabled title="Toggle Microphone">
+            <svg id="mic-icon-on" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+            <span id="mic-btn-label">Mute Mic</span>
+          </button>
+          <button id="btn-leave-voice" class="btn btn-danger" disabled title="Leave Room">
+            Leave
+          </button>
+        </div>
+
+        <!-- Microphone Permission / Device Error Banner -->
+        <div id="mic-error-banner" class="mic-error-banner hidden" role="alert">
+          <span class="error-icon">⚠️</span>
+          <span id="mic-error-message" class="error-text">Microphone access required for live voice room.</span>
+        </div>
+
+        <!-- Live Speech Recognition Streaming Indicator -->
+        <div id="live-speech-box" class="live-speech-box hidden">
+          <div class="speech-box-header">
+            <span class="speech-pulse-dot"></span>
+            <span class="speech-label">Live Voice Transcribing:</span>
+          </div>
+          <p id="live-interim-text" class="speech-interim-text">Listening for speech...</p>
+        </div>
+
+        <!-- Spoken AI Status Debrief Player -->
+        <div class="ai-speech-card" id="ai-speech-card">
+          <div class="ai-speech-header">
+            <div class="ai-avatar">🤖</div>
+            <div class="ai-speech-meta">
+              <strong>AI Co-Commander Voice</strong>
+              <span class="subtitle">Spoken Situational Summary</span>
+            </div>
+            <button id="btn-speak-summary" class="btn btn-sm btn-subtle" title="Read Aloud Summary">
+              🔊 Read Aloud
+            </button>
+          </div>
+          <p id="ai-spoken-text" class="ai-spoken-content">
+            "Incident co-commander ready. Join live voice room to transmit statements or type in the feed below."
+          </p>
+        </div>
+
+        <!-- Real-Time Commander Investigation State Panel -->
+        <div class="commander-state-card" id="commander-state-card">
+          <div class="cs-header">
+            <span class="cs-icon">🧭</span>
+            <span class="cs-title">Investigation State</span>
+          </div>
+          <div id="commander-state-panel" class="commander-state-panel">
+            <div class="cs-row">
+              <span class="cs-label">STATUS</span>
+              <span class="cs-value cs-neutral">Awaiting first report</span>
+            </div>
+            <div class="cs-row">
+              <span class="cs-label">GOAL</span>
+              <span class="cs-value">Join voice room or type a statement below</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Participant Presence Roster -->
+        <div class="participant-section">
+          <div class="section-subhead">
+            <h3>Active Responders (<span id="participant-count">0</span>)</h3>
+            <button id="btn-refresh-presence" class="icon-btn" title="Refresh presence">🔄</button>
+          </div>
+          <div class="participant-list" id="participant-list">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Center Panel: Intelligence Center (Facts, Hypotheses, Conflicts, Approvals) -->
+      <section class="panel intelligence-panel" id="intelligence-panel">
+        <div class="panel-header tabbed-header">
+          <div class="tab-group" role="tablist">
+            <button class="tab-btn active" data-tab="matrix-tab" role="tab" id="tab-matrix">Intelligence Matrix</button>
+            <button class="tab-btn" data-tab="conflicts-tab" role="tab" id="tab-conflicts">Conflicts & Unknowns <span id="conflict-badge" class="counter-badge">1</span></button>
+            <button class="tab-btn" data-tab="approvals-tab" role="tab" id="tab-approvals">Remediation Approvals <span id="approval-badge" class="counter-badge alert">1</span></button>
+            <button class="tab-btn" data-tab="transcript-tab" role="tab" id="tab-transcript">Live Transcript</button>
+          </div>
+          <div class="tab-actions">
+            <button id="btn-run-payment-demo" class="btn btn-accent btn-sm" title="Run Payment Outage Scenario Simulation">
+              ⚡ Run Payment Outage Demo
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 1: Intelligence Matrix (Facts vs Hypotheses) -->
+        <div class="tab-content active" id="matrix-tab">
+          <div class="matrix-grid">
+            <!-- Facts Column -->
+            <div class="matrix-col facts-col">
+              <div class="matrix-col-header">
+                <div class="col-title">
+                  <span class="bullet fact-dot"></span>
+                  <h3>Verified Grounded Facts</h3>
+                </div>
+                <span class="info-pill" title="Facts must possess direct evidence citation">Evidence Grounded</span>
+              </div>
+              <div class="matrix-cards-wrap" id="facts-container">
+                <div class="empty-state">No facts extracted yet. Submit transcript or run the payment demo.</div>
+              </div>
+            </div>
+
+            <!-- Hypotheses Column -->
+            <div class="matrix-col hypotheses-col">
+              <div class="matrix-col-header">
+                <div class="col-title">
+                  <span class="bullet hypothesis-dot"></span>
+                  <h3>Active Hypotheses</h3>
+                </div>
+                <span class="info-pill" title="Separated from facts to prevent root-cause hallucination">Unverified</span>
+              </div>
+              <div class="matrix-cards-wrap" id="hypotheses-container">
+                <div class="empty-state">No hypotheses tracked yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Conflicts & Unknowns Radar -->
+        <div class="tab-content" id="conflicts-tab">
+          <div class="radar-split">
+            <div class="radar-box">
+              <div class="box-head">
+                <span class="conflict-icon">⚠️</span>
+                <h3>Contradiction & Conflict Detection</h3>
+              </div>
+              <p class="radar-desc">Identifies opposing statements between responders or telemetry evidence.</p>
+              <div id="conflicts-container" class="radar-cards-wrap">
+                <!-- Dynamic conflicts -->
+              </div>
+            </div>
+
+            <div class="radar-box">
+              <div class="box-head">
+                <span class="unknown-icon">❓</span>
+                <h3>Missing Information & Knowledge Gaps</h3>
+              </div>
+              <p class="radar-desc">Detects unanswered telemetry questions and missing blast-radius metrics.</p>
+              <div id="unknowns-container" class="radar-cards-wrap">
+                <!-- Dynamic unknowns -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Remediation & Human Approval Gate -->
+        <div class="tab-content" id="approvals-tab">
+          <div class="approval-gate-banner">
+            <div class="banner-icon">🛡️</div>
+            <div class="banner-text">
+              <h4>Human Authorization Policy Active</h4>
+              <p>AI recommends remediation; human incident commanders authorize; system enforces. No unapproved production mutations execute.</p>
+            </div>
+          </div>
+
+          <div class="remediation-list" id="remediations-container">
+            <!-- Dynamic remediation proposals with approval buttons -->
+          </div>
+        </div>
+
+        <!-- Tab 4: Live Transcript Feed & Utterance Ingestion -->
+        <div class="tab-content" id="transcript-tab">
+          <div class="transcript-feed" id="transcript-feed">
+            <!-- Dynamic transcript items -->
+          </div>
+
+          <form id="transcript-form" class="transcript-input-form">
+            <div class="input-row">
+              <input type="text" id="speaker-input" class="styled-input speaker-input" placeholder="Speaker" value="Alice (Commander)" required>
+              <input type="text" id="utterance-input" class="styled-input utterance-input" placeholder="Enter conversation transcript, telemetry log, or hypothesis..." required>
+              <button type="submit" id="btn-submit-utterance" class="btn btn-primary">
+                Analyze Stream
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Right Panel: Status Lifecycle, Timeline & Audit Stream -->
+      <section class="panel timeline-panel" id="timeline-panel">
+        <!-- Incident Status Control -->
+        <div class="status-action-box">
+          <div class="box-head">
+            <h3>Incident Lifecycle</h3>
+            <span class="badge commander-only">Commander Only</span>
+          </div>
+          <div class="lifecycle-steps" id="lifecycle-stepper">
+            <button class="step-btn" data-target-status="declared">Declared</button>
+            <button class="step-btn" data-target-status="open">Open</button>
+            <button class="step-btn" data-target-status="mitigated">Mitigated</button>
+            <button class="step-btn" data-target-status="resolved">Resolved</button>
+          </div>
+        </div>
+
+        <!-- Chronological Timeline Stream -->
+        <div class="timeline-section">
+          <div class="section-subhead">
+            <h3>Incident Timeline</h3>
+            <button id="btn-add-note-modal" class="btn btn-xs btn-subtle">+ Add Note</button>
+          </div>
+          <div class="timeline-stream" id="timeline-stream">
+            <!-- Dynamic timeline events -->
+          </div>
+        </div>
+
+        <!-- Immutable Audit Log Feed -->
+        <div class="audit-section">
+          <div class="section-subhead">
+            <h3>Append-Only Audit Trail</h3>
+            <span class="audit-badge">Tamper Evident</span>
+          </div>
+          <div class="audit-stream" id="audit-stream">
+            <!-- Dynamic audit records -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal: Declare New Incident -->
+    <div id="declare-modal" class="modal-backdrop hidden" aria-hidden="true" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-title">Declare Technical Incident</h3>
+          <button id="btn-close-declare-modal" class="close-btn" aria-label="Close Modal">&times;</button>
+        </div>
+        <form id="declare-incident-form">
+          <div class="form-group">
+            <label for="new-incident-title">Incident Title *</label>
+            <input type="text" id="new-incident-title" class="styled-input" placeholder="e.g. Payment Gateway 503 Authorization Outage" minlength="3" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="new-incident-severity">Severity Level *</label>
+              <select id="new-incident-severity" class="styled-select">
+                <option value="sev1">SEV1 — Critical Customer Impact</option>
+                <option value="sev2">SEV2 — Major Degradation</option>
+                <option value="sev3">SEV3 — Minor Impact</option>
+                <option value="sev4">SEV4 — Low / Internal</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="new-incident-status">Initial Status</label>
+              <select id="new-incident-status" class="styled-select">
+                <option value="declared">Declared</option>
+                <option value="open" selected>Open</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="btn-cancel-declare" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="btn-confirm-declare" class="btn btn-primary">Declare Incident</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
