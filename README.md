@@ -8,11 +8,8 @@ AI recommends. Humans authorize. System enforces.
 
 What Problem Does It Solve?
 
-During a major outage, useful information is fragmented across voice conversations, chat, alerts, monitoring systems, tickets, and responder observations. Facts can be mixed with assumptions, ownership can become unclear, and important decisions can be difficult to reconstruct later.
 
-IncidentPilot is designed to turn that unstructured incident activity into a structured operational state:
 
-confirmed facts
 
 hypotheses
 
@@ -79,55 +76,52 @@ The incident state can surface contradictions such as:
 Engineer: “Database is healthy.”
 Monitoring: “Latency is 4.8 seconds.”
 
-Instead of deciding automatically, IncidentPilot should surface the conflict and recommend a verification step.
+IncidentPilot should surface:
 
-Ownership and Timeline
+🔴 CONFLICT DETECTED
+Human report: Database healthy
+Telemetry: 4.8s latency
 
-Important actions and events can be associated with responders and represented in a chronological incident timeline.
+Next step:
+Verify current DB latency and saturation before treating DB health as confirmed.
 
-Verified Learning
+It does not invent a root cause or silently choose one side.
 
-The project includes an organization-scoped knowledge layer intended to learn from verified incident outcomes. Historical patterns are treated as context, not automatically promoted to current incident facts.
+🎙️ Real-Time Conversational AI
 
-Architecture
+Agora Conversational AI is a core part of the intended runtime voice experience.
 
-The intended runtime architecture is:
-
-Responder Microphone
-        ↓
-     Agora RTC
-        ↓
-Agora Conversational AI Agent
-        ↓
+┌──────────────────────┐
+│   Responder Mic      │
+└──────────┬───────────┘
+           ↓
+┌──────────────────────┐
+│      Agora RTC       │
+└──────────┬───────────┘
+           ↓
+┌──────────────────────────────┐
+│ Agora Conversational AI Agent│
+└──────────┬───────────────────┘
+           ↓
       STT / ASR
-        ↓
-   Managed LLM
-        ↓
-IncidentPilot Reasoning
-        ↓
-       TTS
-        ↓
-     Agora RTC
-        ↓
-   Incident Room
+           ↓
+    Managed LLM
+           ↓
+┌──────────────────────────────┐
+│  IncidentPilot Reasoning     │
+│  Facts / Hypotheses / Risk    │
+│  Conflicts / Next Step        │
+└──────────┬───────────────────┘
+           ↓
+          TTS
+           ↓
+┌──────────────────────┐
+│      Agora RTC       │
+└──────────┬───────────┘
+           ↓
+      Incident Room
 
-IncidentPilot's control plane sits around the conversation and incident state:
-
-Voice / Chat / Signals
-          ↓
-   Evidence Processing
-          ↓
-Facts / Hypotheses / Conflicts / Unknowns
-          ↓
- Recommendations / Actions / Ownership
-          ↓
-Policy + RBAC + Human Approval
-          ↓
-     Audit + Timeline
-
-Managed Conversational AI Models
-
-Where supported and enabled in the Agora project configuration, the intended managed model stack is:
+Intended managed model stack
 
 STT: Deepgram
 
@@ -135,57 +129,181 @@ LLM: OpenAI
 
 TTS: MiniMax
 
-Secrets and privileged credentials must remain server-side.
+Actual Conversational AI availability depends on valid Agora project configuration, credentials, and successful runtime verification.
 
-Technology Stack
+🔄 How IncidentPilot Works
 
-Backend
+OBSERVE
+   ↓
+UNDERSTAND
+   ↓
+COORDINATE
+   ↓
+RECOMMEND
+   ↓
+VERIFY
+   ↓
+CONTROL
+   ↓
+LEARN
 
-Python 3.10–3.13
+01 — Observe
 
-FastAPI
+Capture approved voice, chat, alerts, telemetry, and incident context.
 
-SQLAlchemy 2
+02 — Understand
 
-Alembic
+Structure incoming information into facts, hypotheses, conflicts, unknowns, decisions, and actions.
 
-Pydantic Settings
+03 — Coordinate
 
-JWT authentication
+Track responders, ownership, decisions, next steps, and an incident timeline.
 
-SQLite for local development
+04 — Recommend
 
-PostgreSQL for production
+Suggest the next useful question, verification step, or safe mitigation.
 
-Real-Time / AI
+05 — Verify
 
-Agora RTC
+Require evidence before promoting hypotheses into confirmed outcomes.
 
-Agora Conversational AI integration
+06 — Control
 
-STT / LLM / TTS pipeline
+Apply RBAC, policies, allowlists, and human approval before consequential actions.
 
-Incident intelligence and evidence classification
+07 — Learn
 
-Frontend
+Use only verified outcomes to improve future incident context.
 
-HTML
+🛡️ Human-Controlled Automation
 
-CSS
+IncidentPilot follows a policy-bounded execution model:
 
-JavaScript
+AI Recommendation
+       ↓
+Evidence + Risk
+       ↓
+Policy Check
+       ↓
+RBAC / Permission Check
+       ↓
+Human Approval
+       ↓
+Authorized Execution
+       ↓
+Audit Event
 
-FastAPI-served static frontend
+Critical actions should never receive unrestricted AI access.
 
-Real-time incident dashboard
+Examples include:
 
-Testing
+deployment rollback
 
-Pytest
+production service restart
 
-HTTPX
+routing changes
 
-Project Structure
+feature disablement
+
+infrastructure changes
+
+privileged remediation
+
+external operational notifications
+
+The AI can recommend an action. A named human authorizes it.
+
+🔐 Security by Design
+
+Security is treated as part of the architecture, not as a separate add-on.
+
+Role-Based Access Control (RBAC)
+
+Least-privilege execution
+
+Organization / tenant isolation
+
+Incident-scope authorization
+
+Allowlisted tools and actions
+
+Strict action parameter validation
+
+Human approval for consequential actions
+
+Audit logging and decision history
+
+Secret redaction
+
+Safe handling of untrusted transcript/chat content
+
+Prompt-injection-aware boundaries
+
+Replay and expiry protection for sensitive workflows
+
+The AI is not an administrator.
+
+📊 What the Operator Sees
+
+The IncidentPilot command center is designed around one shared operational state:
+
+┌────────────────────────────────────────────────────────┐
+│ LIVE INCIDENT                                          │
+│ Status • Severity • Responders • Agora / AI status     │
+├────────────────────────────────────────────────────────┤
+│ EVIDENCE                                               │
+│ ✅ Facts   ⚠️ Hypotheses   🔴 Conflicts   ❓ Unknowns  │
+├────────────────────────────────────────────────────────┤
+│ NEXT BEST STEP                                         │
+│ Recommendation • Evidence • Risk • Approval required  │
+├────────────────────────────────────────────────────────┤
+│ ACTIONS                                                │
+│ Owner • Status • Approval • Execution result           │
+├────────────────────────────────────────────────────────┤
+│ INCIDENT TIMELINE                                      │
+│ Signal → Fact → Hypothesis → Conflict → Approval →     │
+│ Verified Recovery                                      │
+└────────────────────────────────────────────────────────┘
+
+🧪 Example Incident Flow
+
+Payment outage demonstration
+
+10:02  SIGNAL       Payment failures spike
+10:06  FACT         Customer impact confirmed
+10:08  HYPOTHESIS   DB latency may contribute
+10:12  ACTION       Investigation assigned
+10:15  CONFLICT     “DB healthy” vs 4.8s latency
+10:18  AI UPDATE    Next verification step suggested
+10:21  APPROVAL     Human authorizes mitigation
+10:26  VERIFIED     Recovery confirmed and logged
+
+The same reasoning model is intended for incidents such as:
+
+API outages · database failures · deployment regressions · authentication failures · network issues · cache/queue failures · service crashes · storage/dependency failures · security incidents · unknown technical incidents
+
+🏗️ Architecture
+
+                           INCIDENTPILOT
+                                  │
+        ┌─────────────────────────┼─────────────────────────┐
+        │                         │                         │
+   LIVE ENGAGEMENT          INCIDENT INTELLIGENCE      CONTROL PLANE
+        │                         │                         │
+   Agora RTC                 STT / ASR                 RBAC
+   Agora Chat                Evidence model            Policy engine
+   Conversational AI         Conflict detection        Human approval
+   Voice events              Runbook context            Allowlisted tools
+        │                         │                         │
+        └─────────────────────────┼─────────────────────────┘
+                                  │
+                           TRUSTED MEMORY
+                                  │
+                  Timeline • Audit • Knowledge
+                                  │
+                         Verified Learning
+
+Repository structure
 
 IncidentPilot/
 ├── apps/
@@ -198,8 +316,8 @@ IncidentPilot/
 │       │   ├── core/
 │       │   ├── db/
 │       │   ├── integrations/
-│       │   ├── services/
 │       │   ├── learning/
+│       │   ├── services/
 │       │   └── static/
 │       ├── alembic/
 │       └── tests/
@@ -212,16 +330,66 @@ IncidentPilot/
 ├── pyproject.toml
 └── README.md
 
-Local Setup
+⚙️ Technology Stack
+
+Layer
+
+Technology
+
+Backend
+
+Python, FastAPI
+
+Database
+
+SQLAlchemy, SQLite (local), PostgreSQL (production)
+
+Migrations
+
+Alembic
+
+Validation / Config
+
+Pydantic Settings
+
+Authentication
+
+JWT-based auth
+
+Real-Time
+
+Agora RTC
+
+Voice AI
+
+Agora Conversational AI
+
+AI Pipeline
+
+STT → LLM → TTS
+
+Frontend
+
+HTML, CSS, JavaScript
+
+Testing
+
+Pytest, HTTPX
+
+Deployment
+
+Docker / Docker Compose
+
+🚀 Run Locally
 
 1. Create a virtual environment
 
-Windows PowerShell:
+Windows PowerShell
 
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
-Linux/macOS:
+Linux / macOS
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -233,19 +401,21 @@ pip install -e ".[dev]"
 
 3. Configure environment
 
+Windows PowerShell
+
 Copy-Item .env.example .env
 
-Linux/macOS:
+Linux / macOS
 
 cp .env.example .env
 
 Never commit .env or real credentials.
 
-4. Run migrations
+4. Run database migrations
 
 alembic upgrade head
 
-5. Start IncidentPilot
+5. Start the application
 
 uvicorn app.main:app --app-dir apps/api --reload
 
@@ -255,25 +425,25 @@ http://127.0.0.1:8000/
 
 Important: open the application through FastAPI. Do not open index.html directly with file://.
 
-Health Checks
+❤️ Health Checks
 
 GET /health/live
 GET /health/ready
 GET /health
 
-Testing
+🧪 Testing
 
-Run the complete backend test suite:
+Run the test suite:
 
 pytest -v
 
-The repository currently contains tests for authentication, actions, incidents, intelligence, learning, Agora-related services, room APIs, multilingual behavior, integrations, and end-to-end scenarios.
+The project contains tests around authentication, incidents, actions, intelligence, learning, integrations, room APIs, Agora-related services, and multilingual behavior.
 
-When validating a real Agora Conversational AI deployment, automated unit tests alone are not sufficient. Perform an actual voice-room test with valid Agora configuration.
+Automated tests are not a substitute for a real voice-room validation. For a live Agora deployment, verify the complete voice path with valid Agora configuration.
 
-Agora Configuration
+🎙️ Agora Configuration
 
-Create/configure an Agora project and provide the required server-side values through environment variables.
+Create and configure an Agora project, then provide the required server-side configuration through environment variables.
 
 Example:
 
@@ -281,176 +451,154 @@ AGORA_APP_ID=your_app_id
 AGORA_APP_CERTIFICATE=your_app_certificate
 AGORA_TOKEN_EXPIRE_SECONDS=3600
 
-Do not commit production credentials.
+Keep credentials server-side and never commit them.
 
-Before a real deployment, verify the Agora project configuration and run the official Agora diagnostic tooling available for the installed CLI/project setup.
-
-The repository includes Agora reference material under:
+Agora reference material used by the project is available under:
 
 .agents/skills/agora/
 
-Security Model
+For real deployment, validate the Agora project configuration and run the official diagnostic tooling available for the installed project/CLI setup.
 
-IncidentPilot follows a policy-bounded design:
+🔌 Real vs Simulation
 
-role-based access control
+IncidentPilot may include demo/simulation behavior for environments where external credentials are unavailable.
 
-least privilege
+Status
 
-organization isolation
+Meaning
 
-incident-scope validation
+🟢 REAL
 
-allowlisted actions
+Actual configured external service
 
-parameter validation
+🟡 SIMULATION
 
-human approval for consequential actions
+Controlled demonstration behavior
 
-audit logging
+⚪ NOT CONFIGURED
 
-secret redaction
+Credentials/service configuration is missing
 
-safe handling of untrusted incident text
+🔵 PLANNED
 
-The intended rule is:
+Architecture defined, implementation not active
 
-The AI may recommend an action; it does not automatically receive unrestricted production access.
+A failed external operation must never be represented as a successful production action.
 
-Incident Examples
+📚 Verified Learning Loop
 
-The design is intended to support different technical incidents rather than one hard-coded scenario, including:
+IncidentPilot is designed to learn from verified outcomes without turning historical assumptions into current facts.
 
-payment outage
+Incident
+   ↓
+Investigation
+   ↓
+Verified Outcome
+   ↓
+Validation
+   ↓
+Knowledge Base
+   ↓
+Future Incident Context
 
-database failure
+Historical patterns can inform an investigation, but they do not automatically become current incident facts.
 
-API outage
+📦 Deployment
 
-authentication/login failure
-
-deployment regression
-
-network issue
-
-cache failure
-
-queue failure
-
-service crash
-
-latency spike
-
-storage or dependency issues
-
-security incidents
-
-unknown technical incidents
-
-A payment outage is useful as a demonstration scenario, but it should not be treated as the only supported incident type.
-
-Real vs Simulation
-
-Some external integrations may require organization credentials and environment-specific configuration.
-
-Production-facing code should clearly distinguish:
-
-REAL — connected to an actual configured service
-
-SIMULATION — controlled demo behavior
-
-NOT CONFIGURED — integration is unavailable because credentials/configuration are missing
-
-PLANNED — architecture is defined but implementation is not active
-
-Never represent simulated data or a failed external request as a successful production operation.
-
-Deployment
-
-For containerized deployment:
+For containerized local deployment:
 
 docker compose up -d --build
 
-Review DEPLOYMENT.md before production use.
+See DEPLOYMENT.md for the deployment configuration and production checklist.
 
-Production environments should use PostgreSQL or another supported production database configuration, strong secrets, explicit CORS origins, secure networking, appropriate observability, and real Agora credentials.
+For production, use:
 
-Demo Flow
+strong secrets
 
-A simple demonstration can follow this sequence:
+explicit CORS origins
 
-Create a technical incident.
+PostgreSQL or another supported production database
 
-Join the Agora incident room.
+secure networking
 
-Start the AI agent.
+real Agora credentials
 
-Report the incident through voice.
+appropriate observability
 
-Provide additional evidence.
+retention/privacy controls
 
-Show facts and hypotheses being separated.
+🎬 Demo Flow
 
-Introduce conflicting evidence.
+A simple judge/demo flow:
 
-Let IncidentPilot surface the conflict.
+Create Incident
+      ↓
+Join Agora Incident Room
+      ↓
+Start AI Co‑Commander
+      ↓
+Speak the Incident
+      ↓
+Facts / Hypotheses / Conflicts / Unknowns
+      ↓
+Next Best Verification Step
+      ↓
+Recommended Mitigation
+      ↓
+Human Approval
+      ↓
+Controlled Action
+      ↓
+Audit Event
+      ↓
+Verified Recovery
 
-Review the recommended next verification step.
+The strongest demonstration is not a long summary. It is showing that the AI understands the changing incident state, asks useful questions, detects conflicting evidence, and recommends the next step without taking uncontrolled production actions.
 
-Propose a mitigation.
+👥 Team DataDynamos
 
-Require human approval for the consequential action.
+Member
 
-Record the action and audit event.
+Focus
 
-Verify recovery before closing the incident.
+Bharat Shishodia
 
-Design Principle
+Team Lead · Product & Security
 
-IncidentPilot is intentionally designed as an evidence-first coordination layer, not an unrestricted autonomous production agent.
+Madan Mohan Mishra
 
-Listen
-  ↓
-Understand
-  ↓
-Coordinate
-  ↓
-Recommend
-  ↓
-Verify
-  ↓
-Control
-  ↓
-Learn
+Problem & Solution · Engineering
 
-Team
+Preetam Gupta
 
-DataDynamos
+Architecture
 
-Bharat Shishodia — Team Lead / Product & Security
+Prince Raj
 
-Madan Mohan Mishra — Problem & Solution / Engineering
+AI · Presentation & Delivery
 
-Preetam Gupta — Architecture
+🏆 Why IncidentPilot?
 
-Prince Raj — AI / Final Presentation & Delivery
+Evidence-first
 
-Submission Note
+Facts, hypotheses, conflicts, and unknowns are explicitly separated.
 
-For GitHub or hackathon submission:
+Voice-native
 
-commit .env.example, not .env
+The co-commander is designed to participate in the same real-time incident room as responders.
 
-never commit API keys or secrets
+Human-controlled
 
-do not commit .venv/, node_modules/, caches, or compiled Python files
+Consequential actions remain behind policy, permissions, and explicit approval.
 
-keep the README aligned with the actual runtime implementation
+Enterprise-minded
 
-clearly label simulated integrations
+Tenant isolation, auditability, runbook grounding, controlled integrations, and verified learning are part of the design.
 
-verify the real Agora Conversational AI flow before making a runtime claim
+Built for the room, not after the incident
 
-Project Status
+IncidentPilot is designed to help responders make sense of an incident while it is happening, not only summarize it afterward.
+
+📌 Current Project Status
 
 IncidentPilot is an active hackathon project with a strong incident-intelligence and control-plane foundation. The final runtime status of external services, including Agora Conversational AI, depends on valid project configuration and successful end-to-end verification in the deployment environment.
